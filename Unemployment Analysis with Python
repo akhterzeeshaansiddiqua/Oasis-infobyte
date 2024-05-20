@@ -1,0 +1,81 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import datetime as dt
+import calendar
+import plotly.express as px
+
+# Load the dataset
+df = pd.read_csv('/kaggle/input/unemployment-in-india/Unemployment in India.csv')
+
+# View top 5 rows
+print(df.head())
+
+# View the last 5 rows
+print(df.tail())
+
+# View the number of rows and columns
+print(f'The dataset has {df.shape[0]} rows')
+print(f'The dataset has {df.shape[1]} columns')
+
+# Check the columns
+print(df.columns)
+
+# Renaming the columns
+df = df.rename(columns={'Region' : 'States', ' Date' : 'Date',' Frequency': 'Frequency' ,
+                        ' Estimated Unemployment Rate (%)' : 'Est_Unemp_Rate', ' Estimated Employed' : 'Est_Emp',
+                        ' Estimated Labour Participation Rate (%)' : 'Est_Labour_Rate'}).reset_index(drop=True)
+
+# Rounding estimated employed column for better visualization
+df['Est_Emp'] = round((df['Est_Emp'] / 1000000), 2)
+
+# Dealing with missing values
+df.dropna(inplace=True)
+
+# Changing the dtype of 'Date' column
+df['Date'] = pd.to_datetime(df['Date'])
+
+# Converting 'Area' columns to categorical data type
+df['Area'] = df['Area'].astype('category')
+
+# Dropping the 'Frequency' column
+df = df.drop(['Frequency'], axis=1)
+
+# Creating new columns for year and month
+df['Year'] = df['Date'].dt.year
+df['Month'] = df['Date'].dt.month
+df['Month_Name'] = df['Month'].apply(lambda x: calendar.month_abbr[x])
+
+# Descriptive Statistics
+df_stat = df[['Est_Unemp_Rate', 'Est_Emp', 'Est_Labour_Rate']]
+print(round(df_stat.describe(), 2))
+
+# Grouping the data by 'Date' and calculate the mean unemployment rate for each date
+mean_unemployment_over_time = df.groupby('Date')['Est_Unemp_Rate'].mean()
+
+# Create a line plot
+plt.figure(figsize=(10, 6))
+plt.plot(mean_unemployment_over_time.index, mean_unemployment_over_time.values, marker='+', linestyle='--', color='red')
+plt.xlabel('Date')
+plt.ylabel('Estimated Unemployment Rate (%)')
+plt.title('Unemployment Rate Over Time')
+plt.grid(True)
+plt.show()
+
+# Analysing the 'Estimated Unemployment Rate' column using Boxplot for years 2019 and 2020
+plt.figure(figsize=(5, 5))
+plt.style.use('ggplot')
+sns.boxplot(y=df['Est_Unemp_Rate'], x=df['Year'], color='green')
+plt.xlabel('Year')
+plt.ylabel('Estimated Unemployment Rate (%)')
+plt.title('Unemployment Rate in 2019 vs 2020')
+plt.show()
+
+# Bar plot of average Unemployment Rate by State
+df_unemp = df[['Est_Unemp_Rate', 'States']].groupby('States').mean().reset_index()
+df_unemp = df_unemp.sort_values('Est_Unemp_Rate')
+fig = px.bar(df_unemp, x='States', y='Est_Unemp_Rate', color='States',
+             labels={'States': 'States', 'Est_Unemp_Rate': 'Average Unemployment Rate (%)'},
+             title='Average Unemployment Rate in each state', template='plotly_white')
+fig.show()
