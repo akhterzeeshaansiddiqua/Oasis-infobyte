@@ -1,0 +1,99 @@
+# Importing Libraries
+import os
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.metrics import accuracy_score, classification_report
+from nltk.stem import WordNetLemmatizer
+from nltk.tokenize import sent_tokenize
+from gensim.models import FastText
+from gensim.utils import simple_preprocess
+
+# Check existence of file or directory
+if os.path.exists("/kaggle/input/imagea/_0710389c-c688-44d2-864f-1377bee9a620.jpg"):
+    print("Image file exists.")
+else:
+    print("Image file does not exist.")
+
+# Read CSV file with different encodings
+encodings = ['utf-8', 'latin1', 'iso-8859-1', 'cp1252', 'utf-16', 'utf-32', 'ascii']
+for enc in encodings:
+    try:
+        data = pd.read_csv('/kaggle/input/sms-spam-collection-dataset/spam.csv',
+                           sep='\t', names=["label", "message"], encoding=enc)
+        print(f"Successfully loaded with encoding: {enc}")
+        print(data.head())
+        break
+    except Exception as e:
+        print(f"Error with encoding {enc}: {e}")
+
+# Text Preprocessing
+lemma = WordNetLemmatizer()
+processed_text = []
+for i in range(len(data)):
+    text = data['message'][i]
+    text = re.sub('[^a-zA-Z]', ' ', text)
+    text = text.lower().split()
+    text = [lemma.lemmatize(word) for word in text]
+    text = ' '.join(text)
+    processed_text.append(text)
+
+# Training FastText Model
+words = []
+for message in processed_text:
+    tokenized_sentences = sent_tokenize(message)
+    for sentence in tokenized_sentences:
+        words.append(simple_preprocess(sentence))
+
+model = FastText(sentences=words, vector_size=100, window=5, min_count=1, workers=4)
+model.save("fasttext_model")
+
+# Function to calculate average FastText vector
+def avg_FastText(doc, model):
+    send = [word.lower() for word in doc if word.lower() in model.wv.index_to_key]
+    if not send:
+        return np.zeros(model.vector_size)
+    word_vectors = [model.wv[word] for word in send]
+    avg_vector = np.mean(word_vectors, axis=0)
+    return avg_vector
+
+# Calculate average word vectors
+avg_words = []
+for sentence in tqdm(words, desc="Calculating Average Word Vectors"):
+    avg_words.append(avg_FastText(sentence, model))
+
+# Prepare data for training the classifier
+X = np.array(avg_words)
+y = data['label']
+
+# Training a Gradient Boosting Classifier
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+model = GradientBoostingClassifier()
+
+param_grid = {
+    'learning_rate': [0.01, 0.1],
+    'n_estimators': [100, 200],
+    'max_depth': [3, 5],
+    'subsample': [0.8, 1.0],
+    'min_samples_split': [2, 5],
+    'min_samples_leaf': [1, 2],
+    'max_features': ['sqrt', 'log2'],
+    'loss': ['deviance']
+}
+
+grid_search = GridSearchCV(estimator=model, param_grid=param_grid, cv=5)
+grid_search.fit(X_train, y_train)
+
+best_params = grid_search.best_params_
+print("Best Parameters:", best_params)
+
+model = GradientBoostingClassifier(**best_params)
+model.fit(X_train, y_train)
+
+y_pred = model.predict(X_test)
+
+# Evaluation
+print("Accuracy:", accuracy_score(y_test, y_pred))
+print("Classification Report:\n", classification_report(y_test, y_pred))
