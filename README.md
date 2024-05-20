@@ -1,2 +1,0 @@
-# Oasis-infobyte
-Internship project

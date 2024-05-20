@@ -1,0 +1,64 @@
+# Oasis-infobyte
+Internship project
+# Importing required libraries
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Reading dataset into pandas dataframe
+data = pd.read_csv('/kaggle/input/iriscsv/Iris.csv')
+
+# Creating a column cat_code which represents the numerical values for Species column
+data['cat_code'] = data['Species'].astype('category').cat.codes
+
+# Outlier treatment function
+def Outlier_Treatment(data1, variable):
+    percentile25 = data1[variable].quantile(0.25)
+    percentile75 = data1[variable].quantile(0.75)
+    iqr = percentile75 - percentile25
+    upper_limit = percentile75 + 1.5 * iqr
+    lower_limit = percentile25 - 1.5 * iqr
+    data1 = data1[(data1[variable] >= lower_limit) & (data1[variable] <= upper_limit)]
+    plt.figure(figsize=(12, 6))
+    sns.boxplot(data1[variable])
+    plt.show()
+    global data
+    data = data1
+
+# Applying outlier treatment to 'SepalWidthCm'
+Outlier_Treatment(data, 'SepalWidthCm')
+
+# Selecting input features
+x = data[['SepalLengthCm', 'SepalWidthCm', 'PetalLengthCm', 'PetalWidthCm']]
+
+# Selecting the target
+y = data['cat_code']
+
+# Visualizing the categories of iris flowers with respect to Sepal Length and Sepal Width
+plt.scatter(x['SepalLengthCm'], x['SepalWidthCm'], c=y)
+plt.show()
+
+# Splitting train and test datasets
+from sklearn.model_selection import train_test_split
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, shuffle=True)
+
+# Fitting the logistic regression model
+from sklearn.linear_model import LogisticRegression
+lm = LogisticRegression()
+lm.fit(x_train, y_train)
+
+# Predicting for test set and calculating accuracy
+from sklearn.metrics import accuracy_score
+y_pred = lm.predict(x_test)
+accuracy = accuracy_score(y_test, y_pred)
+print("Accuracy:", accuracy)
+
+# Predicting for new values
+new_val1 = pd.DataFrame({'SepalLengthCm': [5.2], 'SepalWidthCm': [2], 'PetalLengthCm': [3.5], 'PetalWidthCm': [1]})
+prediction1 = lm.predict(new_val1)
+print("Prediction for new value 1:", prediction1)
+
+new_val2 = pd.DataFrame({'SepalLengthCm': [5], 'SepalWidthCm': [3.5], 'PetalLengthCm': [1.4], 'PetalWidthCm': [0.2]})
+prediction2 = lm.predict(new_val2)
+print("Prediction for new value 2:", prediction2)
