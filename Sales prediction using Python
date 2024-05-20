@@ -1,0 +1,20 @@
+# Importing necessary libraries
+import numpy as np
+import pandas as pd
+import statsmodels.api as sm
+
+# Read the advertising dataset
+advertising_data = pd.read_csv("/kaggle/input/advertisingcsv/Advertising.csv")
+
+# Extracting feature (TV) and target (Sales) variables
+X = advertising_data["TV"]
+y = advertising_data["Sales"]
+
+# Adding a constant term to the independent variable
+X = sm.add_constant(X)
+
+# Fitting the linear regression model
+model = sm.OLS(y, X).fit()
+
+# Printing the model summary
+print(model.summary())
